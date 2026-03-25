@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --bg: #0A0A0A;
+    --surface: #111111;
+    --surface-hover: #1A1A1A;
+    --elevated: #222222;
+    --border: #262626;
+    --border-hover: #333333;
+    --accent: #00E5C8;
+    --accent-hover: #00C9AF;
+    --text-primary: #E0E0E0;
+    --text-secondary: #888888;
+    --text-muted: #444444;
+    --danger: #FF4444;
+    --warning: #FFB800;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--border-hover);
+  }
+}
+
+@layer utilities {
+  .bg-dot-grid {
+    background-image: radial-gradient(circle, #262626 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+}
