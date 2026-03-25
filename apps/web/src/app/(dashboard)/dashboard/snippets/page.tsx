@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Card, CardContent, Badge, Input, CodeBlock } from '@repo/ui';
+import { Button, Card, CardContent, Badge, Input, CodeBlock, useToast, ConfirmDialog } from '@repo/ui';
 import { Plus, Search, Star, Trash2, Code2, Copy } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 
@@ -15,6 +15,8 @@ export default function SnippetsPage() {
   const [langFilter, setLangFilter] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [expandedSnippet, setExpandedSnippet] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const { data, isLoading, refetch } = trpc.snippet.list.useQuery({
     search: search || undefined,
@@ -27,15 +29,22 @@ export default function SnippetsPage() {
     onSuccess: () => {
       refetch();
       setShowNew(false);
+      toast({ title: 'Snippet created', variant: 'success' });
     },
   });
 
   const deleteSnippet = trpc.snippet.delete.useMutation({
-    onSuccess: () => refetch(),
+    onSuccess: () => {
+      refetch();
+      toast({ title: 'Snippet deleted', variant: 'success' });
+    },
   });
 
   const toggleFavorite = trpc.snippet.toggleFavorite.useMutation({
-    onSuccess: () => refetch(),
+    onSuccess: () => {
+      refetch();
+      toast({ title: 'Favorite toggled', variant: 'success' });
+    },
   });
 
   const snippets = data?.snippets ?? [];
@@ -147,7 +156,7 @@ export default function SnippetsPage() {
                       <Copy className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => deleteSnippet.mutate({ id: snippet.id })}
+                      onClick={() => setPendingDeleteId(snippet.id)}
                       className="p-1 text-text-muted hover:text-danger"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -184,6 +193,21 @@ export default function SnippetsPage() {
           ))}
         </div>
       )}
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        title="Delete Snippet"
+        description="Are you sure you want to delete this snippet? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => {
+          if (pendingDeleteId) deleteSnippet.mutate({ id: pendingDeleteId });
+          setPendingDeleteId(null);
+        }}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </div>
   );
 }

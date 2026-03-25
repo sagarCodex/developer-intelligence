@@ -7,7 +7,7 @@ const config: Config = {
     '../../packages/ui/src/**/*.{ts,tsx}',
   ],
   presets: [uiPreset as Config],
-  plugins: [],
+  plugins: [require('@tailwindcss/typography')],
 };
 
 export default config;

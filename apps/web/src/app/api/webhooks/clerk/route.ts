@@ -1,4 +1,3 @@
-import { Webhook } from 'svix';
 import { headers } from 'next/headers';
 import { prisma } from '@repo/db';
 
@@ -31,6 +30,13 @@ export async function POST(req: Request) {
 
   const payload = await req.json();
   const body = JSON.stringify(payload);
+
+  let Webhook: any;
+  try {
+    Webhook = (await import('svix')).Webhook;
+  } catch {
+    return new Response('svix not installed — webhook verification disabled', { status: 500 });
+  }
 
   const wh = new Webhook(WEBHOOK_SECRET);
 

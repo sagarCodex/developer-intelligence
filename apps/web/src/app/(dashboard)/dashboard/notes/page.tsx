@@ -1,15 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Card, CardContent, Badge, Input } from '@repo/ui';
-import { Plus, Search, Pin, Trash2, FileText } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Button, Card, CardContent, Badge, Input, Skeleton, useToast, ConfirmDialog } from '@repo/ui';
+import { Plus, Search, Pin, Trash2, FileText, Eye, Edit3 } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 
 export default function NotesPage() {
   const [search, setSearch] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [editingNote, setEditingNote] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [newNote, setNewNote] = useState(false);
+  const { toast } = useToast();
 
   const { data, isLoading, refetch } = trpc.note.list.useQuery({
     search: search || undefined,
@@ -20,15 +24,22 @@ export default function NotesPage() {
     onSuccess: () => {
       refetch();
       setNewNote(false);
+      toast({ title: 'Note created', variant: 'success' });
     },
   });
 
   const deleteNote = trpc.note.delete.useMutation({
-    onSuccess: () => refetch(),
+    onSuccess: () => {
+      refetch();
+      toast({ title: 'Note deleted', variant: 'success' });
+    },
   });
 
   const togglePin = trpc.note.togglePin.useMutation({
-    onSuccess: () => refetch(),
+    onSuccess: () => {
+      refetch();
+      toast({ title: 'Pin toggled', variant: 'success' });
+    },
   });
 
   const notes = data?.notes ?? [];
@@ -96,9 +107,16 @@ export default function NotesPage() {
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Card key={i}>
               <CardContent className="p-5 space-y-3">
-                <div className="h-5 w-3/4 bg-surface-hover rounded animate-pulse" />
-                <div className="h-4 w-full bg-surface-hover rounded animate-pulse" />
-                <div className="h-4 w-1/2 bg-surface-hover rounded animate-pulse" />
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-1/2" />
+                <div className="flex items-center justify-between pt-2">
+                  <div className="flex gap-1">
+                    <Skeleton className="h-5 w-12 rounded-full" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                  <Skeleton className="h-3 w-10" />
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -112,12 +130,27 @@ export default function NotesPage() {
               key={note.id}
               note={note}
               onPin={() => togglePin.mutate({ id: note.id })}
-              onDelete={() => deleteNote.mutate({ id: note.id })}
+              onDelete={() => setPendingDeleteId(note.id)}
               onEdit={() => setEditingNote(note.id)}
             />
           ))}
         </div>
       )}
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        title="Delete Note"
+        description="Are you sure you want to delete this note? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => {
+          if (pendingDeleteId) deleteNote.mutate({ id: pendingDeleteId });
+          setPendingDeleteId(null);
+        }}
+        onCancel={() => setPendingDeleteId(null)}
+      />
 
       {/* Edit modal */}
       {editingNote && (
@@ -186,7 +219,13 @@ function NoteCard({
             </button>
           </div>
         </div>
-        <p className="text-xs text-text-secondary mb-3 line-clamp-3 font-mono">{preview || 'Empty note'}</p>
+        <div className="text-xs text-text-secondary mb-3 line-clamp-3 font-mono prose prose-invert prose-xs max-w-none prose-p:m-0 prose-headings:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-accent prose-code:text-[10px]">
+          {preview ? (
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{preview}</ReactMarkdown>
+          ) : (
+            <p>Empty note</p>
+          )}
+        </div>
         <div className="flex items-center justify-between">
           <div className="flex gap-1 flex-wrap">
             {note.tags.slice(0, 3).map((tag) => (
@@ -262,11 +301,18 @@ function NewNoteForm({
 }
 
 function EditNoteModal({ noteId, onClose }: { noteId: string; onClose: () => void }) {
+  const { toast } = useToast();
   const { data: note, isLoading } = trpc.note.getById.useQuery({ id: noteId });
-  const updateNote = trpc.note.update.useMutation({ onSuccess: onClose });
+  const updateNote = trpc.note.update.useMutation({
+    onSuccess: () => {
+      toast({ title: 'Note updated', variant: 'success' });
+      onClose();
+    },
+  });
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [initialized, setInitialized] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
 
   if (note && !initialized) {
     setTitle(note.title);
@@ -289,11 +335,44 @@ function EditNoteModal({ noteId, onClose }: { noteId: string; onClose: () => voi
             onChange={(e) => setTitle(e.target.value)}
             className="text-lg font-semibold"
           />
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            className="flex min-h-[400px] w-full rounded-md border border-border bg-bg px-3 py-2 text-sm font-mono text-text-primary placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-y"
-          />
+          {/* Edit/Preview toggle */}
+          <div className="flex gap-1 border-b border-border pb-0">
+            <button
+              onClick={() => setPreviewMode(false)}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-mono border-b-2 transition-colors -mb-[1px] ${
+                !previewMode
+                  ? 'border-accent text-accent'
+                  : 'border-transparent text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <Edit3 className="h-3 w-3" /> Edit
+            </button>
+            <button
+              onClick={() => setPreviewMode(true)}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-mono border-b-2 transition-colors -mb-[1px] ${
+                previewMode
+                  ? 'border-accent text-accent'
+                  : 'border-transparent text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <Eye className="h-3 w-3" /> Preview
+            </button>
+          </div>
+          {previewMode ? (
+            <div className="min-h-[400px] rounded-md border border-border bg-bg px-4 py-3 prose prose-invert prose-sm max-w-none font-mono prose-headings:font-mono prose-code:text-accent prose-pre:bg-surface prose-pre:border prose-pre:border-border prose-a:text-accent">
+              {content ? (
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+              ) : (
+                <p className="text-text-muted italic">Nothing to preview</p>
+              )}
+            </div>
+          ) : (
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              className="flex min-h-[400px] w-full rounded-md border border-border bg-bg px-3 py-2 text-sm font-mono text-text-primary placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-y"
+            />
+          )}
           <div className="flex gap-2 justify-end">
             <Button variant="ghost" onClick={onClose}>
               Cancel

@@ -20,6 +20,9 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@repo/ui';
+import { CommandPalette } from '../../components/command-palette';
+import { ErrorBoundary } from '../../components/error-boundary';
+import { useKeyboardShortcuts } from '../../hooks/use-keyboard-shortcuts';
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -42,9 +45,11 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  useKeyboardShortcuts();
 
   return (
     <div className="min-h-screen bg-bg flex">
+      <CommandPalette />
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -103,6 +108,16 @@ export default function DashboardLayout({
           })}
         </nav>
 
+        {/* Keyboard hints */}
+        <div className="px-4 py-2 border-t border-border">
+          <div className="flex items-center gap-2 text-[10px] text-text-muted font-mono">
+            <kbd className="px-1.5 py-0.5 rounded border border-border bg-bg">⌘K</kbd>
+            <span>Command</span>
+            <kbd className="px-1.5 py-0.5 rounded border border-border bg-bg ml-auto">/</kbd>
+            <span>Search</span>
+          </div>
+        </div>
+
         {/* User */}
         <div className="p-4 border-t border-border">
           <div className="flex items-center gap-2">
@@ -129,7 +144,9 @@ export default function DashboardLayout({
           </span>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6">{children}</div>
+        <div className="flex-1 overflow-y-auto p-6">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </div>
       </main>
     </div>
   );

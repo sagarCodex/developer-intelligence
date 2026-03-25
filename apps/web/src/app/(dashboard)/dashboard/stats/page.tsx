@@ -1,16 +1,67 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle, Badge } from '@repo/ui';
+import { Card, CardContent, CardHeader, CardTitle, Badge, Skeleton } from '@repo/ui';
 import { Flame, Timer, FileText, Code2, CheckSquare, TrendingUp } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 
 export default function StatsPage() {
-  const { data: summary } = trpc.stats.getSummary.useQuery();
-  const { data: weeklyStats } = trpc.stats.getWeeklyStats.useQuery();
-  const { data: streakInfo } = trpc.stats.getStreakInfo.useQuery();
+  const { data: summary, isLoading: summaryLoading } = trpc.stats.getSummary.useQuery();
+  const { data: weeklyStats, isLoading: weeklyLoading } = trpc.stats.getWeeklyStats.useQuery();
+  const { data: streakInfo, isLoading: streakLoading } = trpc.stats.getStreakInfo.useQuery();
 
+  const isLoading = summaryLoading || weeklyLoading || streakLoading;
   const streak = streakInfo?.currentStreak ?? 0;
   const activityData = streakInfo?.activityData ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-8">
+        <div>
+          <Skeleton className="h-7 w-48 mb-2" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+
+        {/* Top stats skeleton */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-4 text-center space-y-2">
+                <Skeleton className="h-5 w-5 mx-auto" />
+                <Skeleton className="h-7 w-12 mx-auto" />
+                <Skeleton className="h-3 w-14 mx-auto" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Heatmap skeleton */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-4 w-36" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-24 w-full" />
+          </CardContent>
+        </Card>
+
+        {/* Weekly breakdown skeleton */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-4 w-24" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+              <div key={i} className="flex items-center gap-4">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-6 flex-1" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">

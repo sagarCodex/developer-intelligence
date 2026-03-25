@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Card, CardContent, Badge, Input } from '@repo/ui';
+import { Button, Card, CardContent, Badge, Input, useToast, ConfirmDialog } from '@repo/ui';
 import { Plus, FolderKanban, Archive, Trash2, FileText, Code2, CheckSquare } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 
@@ -13,6 +13,8 @@ const PROJECT_COLORS = [
 export default function ProjectsPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [showNew, setShowNew] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const { data: projects, isLoading, refetch } = trpc.project.list.useQuery({
     includeArchived: showArchived,
@@ -22,15 +24,22 @@ export default function ProjectsPage() {
     onSuccess: () => {
       refetch();
       setShowNew(false);
+      toast({ title: 'Project created', variant: 'success' });
     },
   });
 
   const archiveProject = trpc.project.archive.useMutation({
-    onSuccess: () => refetch(),
+    onSuccess: () => {
+      refetch();
+      toast({ title: 'Project archived', variant: 'success' });
+    },
   });
 
   const deleteProject = trpc.project.delete.useMutation({
-    onSuccess: () => refetch(),
+    onSuccess: () => {
+      refetch();
+      toast({ title: 'Project deleted', variant: 'success' });
+    },
   });
 
   return (
@@ -116,7 +125,7 @@ export default function ProjectsPage() {
                       </button>
                     )}
                     <button
-                      onClick={() => deleteProject.mutate({ id: project.id })}
+                      onClick={() => setPendingDeleteId(project.id)}
                       className="p-1 text-text-muted hover:text-danger"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -145,6 +154,21 @@ export default function ProjectsPage() {
           ))}
         </div>
       )}
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        title="Delete Project"
+        description="Are you sure you want to delete this project? All associated notes, snippets, and tasks will be unlinked. This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => {
+          if (pendingDeleteId) deleteProject.mutate({ id: pendingDeleteId });
+          setPendingDeleteId(null);
+        }}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </div>
   );
 }

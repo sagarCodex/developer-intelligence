@@ -1,11 +1,56 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui';
+import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '@repo/ui';
 import { Timer, CheckSquare, Flame, FolderKanban } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 
 export default function DashboardPage() {
   const { data: summary, isLoading } = trpc.stats.getSummary.useQuery();
+
+  if (isLoading) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-8">
+        {/* Greeting skeleton */}
+        <div>
+          <Skeleton className="h-8 w-40 mb-3 rounded-full" />
+          <Skeleton className="h-7 w-64 mb-2" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+
+        {/* Stat cards skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} variant="elevated">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-10 w-10 rounded-md" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-5 w-12" />
+                    <Skeleton className="h-3 w-14" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Quick stats skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-4 w-24" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-9 w-16" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -28,26 +73,26 @@ export default function DashboardPage() {
         <StatCard
           icon={Timer}
           label="Focus Time"
-          value={isLoading ? '—' : `${summary?.todayFocusMinutes ?? 0}m`}
+          value={`${summary?.todayFocusMinutes ?? 0}m`}
           subtitle="today"
         />
         <StatCard
           icon={CheckSquare}
           label="Tasks Done"
-          value={isLoading ? '—' : String(summary?.todayTasksCompleted ?? 0)}
+          value={String(summary?.todayTasksCompleted ?? 0)}
           subtitle="today"
         />
         <StatCard
           icon={Flame}
           label="Streak"
-          value={isLoading ? '—' : `${summary?.streakDays ?? 0} days`}
+          value={`${summary?.streakDays ?? 0} days`}
           subtitle="consecutive"
           accent
         />
         <StatCard
           icon={FolderKanban}
           label="Projects"
-          value={isLoading ? '—' : String(summary?.activeProjects ?? 0)}
+          value={String(summary?.activeProjects ?? 0)}
           subtitle="active"
         />
       </div>
@@ -60,7 +105,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="font-mono text-3xl font-bold text-text-primary">
-              {isLoading ? '—' : summary?.totalNotes ?? 0}
+              {summary?.totalNotes ?? 0}
             </p>
           </CardContent>
         </Card>
@@ -70,7 +115,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="font-mono text-3xl font-bold text-text-primary">
-              {isLoading ? '—' : summary?.totalSnippets ?? 0}
+              {summary?.totalSnippets ?? 0}
             </p>
           </CardContent>
         </Card>
@@ -80,7 +125,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="font-mono text-3xl font-bold text-text-primary">
-              {isLoading ? '—' : summary?.totalTasksCompleted ?? 0}
+              {summary?.totalTasksCompleted ?? 0}
             </p>
           </CardContent>
         </Card>

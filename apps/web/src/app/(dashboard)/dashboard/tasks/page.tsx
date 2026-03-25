@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Card, CardContent, Badge, Input } from '@repo/ui';
+import { Button, Card, CardContent, Badge, Input, useToast, ConfirmDialog } from '@repo/ui';
 import { Plus, CheckSquare, Circle, Clock, AlertTriangle, Trash2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 
@@ -32,6 +32,8 @@ const priorityColors: Record<string, string> = {
 export default function TasksPage() {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const { data, isLoading, refetch } = trpc.task.list.useQuery({
     status: (statusFilter as 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED') ?? undefined,
@@ -41,15 +43,22 @@ export default function TasksPage() {
     onSuccess: () => {
       refetch();
       setShowNew(false);
+      toast({ title: 'Task created', variant: 'success' });
     },
   });
 
   const updateStatus = trpc.task.updateStatus.useMutation({
-    onSuccess: () => refetch(),
+    onSuccess: () => {
+      refetch();
+      toast({ title: 'Status updated', variant: 'success' });
+    },
   });
 
   const deleteTask = trpc.task.delete.useMutation({
-    onSuccess: () => refetch(),
+    onSuccess: () => {
+      refetch();
+      toast({ title: 'Task deleted', variant: 'success' });
+    },
   });
 
   const tasks = data?.tasks ?? [];
@@ -153,7 +162,7 @@ export default function TasksPage() {
                     {task.priority}
                   </Badge>
                   <button
-                    onClick={() => deleteTask.mutate({ id: task.id })}
+                    onClick={() => setPendingDeleteId(task.id)}
                     className="p-1 text-text-muted hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -164,6 +173,21 @@ export default function TasksPage() {
           })}
         </div>
       )}
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        title="Delete Task"
+        description="Are you sure you want to delete this task? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => {
+          if (pendingDeleteId) deleteTask.mutate({ id: pendingDeleteId });
+          setPendingDeleteId(null);
+        }}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </div>
   );
 }
