@@ -8,7 +8,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "studio": "prisma studio",
-    "db:seed": "tsx src/seed.ts"
+    "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.9.0",

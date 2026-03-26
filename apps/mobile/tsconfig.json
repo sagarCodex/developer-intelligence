@@ -7,6 +7,14 @@
     "noEmit": true,
     "strict": true
   },
-  "include": ["**/*.ts", "**/*.tsx", "nativewind-env.d.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "nativewind-env.d.ts",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
