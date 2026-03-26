@@ -1,17 +1,17 @@
+import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { authOptions } from '@/lib/auth';
 
 export default async function LandingPage() {
-  if (process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
-    try {
-      const { auth } = await import('@clerk/nextjs/server');
-      const { userId } = await auth();
-      if (userId) {
-        redirect('/dashboard');
-      }
-    } catch {
-      // Clerk not configured, continue to landing page
+  // If already signed in, redirect to dashboard
+  try {
+    const session = await getServerSession(authOptions);
+    if (session) {
+      redirect('/dashboard');
     }
+  } catch {
+    // Auth not configured, continue to landing page
   }
 
   return (
@@ -58,19 +58,17 @@ export default async function LandingPage() {
         {/* CTA */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
-            href={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? '/sign-up' : '/dashboard'}
+            href="/sign-in"
             className="inline-flex items-center justify-center h-12 px-8 rounded-md bg-accent text-bg font-mono font-semibold text-sm hover:bg-accent-hover transition-colors shadow-[0_0_20px_rgba(0,229,200,0.2)] hover:shadow-[0_0_30px_rgba(0,229,200,0.3)]"
           >
-            {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? 'Get Started' : 'Enter Dashboard'}
+            Get Started
           </Link>
-          {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && (
-            <Link
-              href="/sign-in"
-              className="inline-flex items-center justify-center h-12 px-8 rounded-md border border-border text-text-primary font-mono text-sm hover:border-accent hover:text-accent transition-colors"
-            >
-              Sign In
-            </Link>
-          )}
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center justify-center h-12 px-8 rounded-md border border-border text-text-primary font-mono text-sm hover:border-accent hover:text-accent transition-colors"
+          >
+            Try without signing in
+          </Link>
         </div>
 
         {/* Terminal cursor */}

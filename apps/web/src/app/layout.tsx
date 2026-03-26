@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { TRPCProvider } from '@/lib/trpc/provider';
+import { AuthProvider } from '@/lib/auth-provider';
 import { ToastProvider } from '@repo/ui';
 import './globals.css';
 
@@ -17,9 +18,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="min-h-screen antialiased">
-        <TRPCProvider>
-          <ToastProvider>{children}</ToastProvider>
-        </TRPCProvider>
+        <AuthProvider>
+          <TRPCProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </TRPCProvider>
+        </AuthProvider>
       </body>
     </html>
   );

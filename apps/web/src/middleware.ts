@@ -2,26 +2,38 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export default async function middleware(request: NextRequest) {
-  // If Clerk is not configured, allow all routes
-  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+  // Allow all auth-related routes (NextAuth + Clerk)
+  const { pathname } = request.nextUrl;
+  if (
+    pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/sign-in') ||
+    pathname.startsWith('/sign-up') ||
+    pathname === '/'
+  ) {
     return NextResponse.next();
   }
 
-  // Dynamically import Clerk middleware only when configured
-  const { clerkMiddleware, createRouteMatcher } = await import('@clerk/nextjs/server');
+  // If Clerk is configured, use Clerk middleware
+  if (process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+    const { clerkMiddleware, createRouteMatcher } = await import('@clerk/nextjs/server');
 
-  const isPublicRoute = createRouteMatcher([
-    '/',
-    '/sign-in(.*)',
-    '/sign-up(.*)',
-    '/api/webhooks/clerk',
-  ]);
+    const isPublicRoute = createRouteMatcher([
+      '/',
+      '/sign-in(.*)',
+      '/sign-up(.*)',
+      '/api/auth(.*)',
+      '/api/webhooks/clerk',
+    ]);
 
-  return clerkMiddleware(async (auth, req) => {
-    if (!isPublicRoute(req)) {
-      await (auth as any).protect();
-    }
-  })(request, {} as never);
+    return clerkMiddleware(async (auth, req) => {
+      if (!isPublicRoute(req)) {
+        await (auth as any).protect();
+      }
+    })(request, {} as never);
+  }
+
+  // Otherwise allow all routes (NextAuth handles its own protection)
+  return NextResponse.next();
 }
 
 export const config = {

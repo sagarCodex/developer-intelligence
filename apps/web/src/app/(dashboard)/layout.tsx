@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { User } from 'lucide-react';
+import { User, LogOut } from 'lucide-react';
 import {
   LayoutDashboard,
   FileText,
@@ -19,6 +19,7 @@ import {
   Bot,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useSession, signOut } from 'next-auth/react';
 import { cn } from '@repo/ui';
 import { CommandPalette } from '../../components/command-palette';
 import { ErrorBoundary } from '../../components/error-boundary';
@@ -45,6 +46,7 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { data: session } = useSession();
   useKeyboardShortcuts();
 
   return (
@@ -121,10 +123,31 @@ export default function DashboardLayout({
         {/* User */}
         <div className="p-4 border-t border-border">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-surface-hover flex items-center justify-center">
-              <User className="h-4 w-4 text-text-secondary" />
+            {session?.user?.image ? (
+              <img
+                src={session.user.image}
+                alt={session.user.name || ''}
+                className="h-8 w-8 rounded-full"
+              />
+            ) : (
+              <div className="h-8 w-8 rounded-full bg-surface-hover flex items-center justify-center">
+                <User className="h-4 w-4 text-text-secondary" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <span className="font-mono text-xs text-text-secondary truncate block">
+                {session?.user?.name || 'Terminal_User'}
+              </span>
             </div>
-            <span className="font-mono text-xs text-text-secondary">Terminal_User</span>
+            {session && (
+              <button
+                onClick={() => signOut({ callbackUrl: '/' })}
+                className="text-text-muted hover:text-danger transition-colors flex-shrink-0"
+                title="Sign out"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </aside>
