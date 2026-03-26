@@ -58,17 +58,19 @@ export default async function LandingPage() {
         {/* CTA */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
-            href="/sign-up"
+            href={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? '/sign-up' : '/dashboard'}
             className="inline-flex items-center justify-center h-12 px-8 rounded-md bg-accent text-bg font-mono font-semibold text-sm hover:bg-accent-hover transition-colors shadow-[0_0_20px_rgba(0,229,200,0.2)] hover:shadow-[0_0_30px_rgba(0,229,200,0.3)]"
           >
-            Get Started
+            {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? 'Get Started' : 'Enter Dashboard'}
           </Link>
-          <Link
-            href="/sign-in"
-            className="inline-flex items-center justify-center h-12 px-8 rounded-md border border-border text-text-primary font-mono text-sm hover:border-accent hover:text-accent transition-colors"
-          >
-            Sign In
-          </Link>
+          {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && (
+            <Link
+              href="/sign-in"
+              className="inline-flex items-center justify-center h-12 px-8 rounded-md border border-border text-text-primary font-mono text-sm hover:border-accent hover:text-accent transition-colors"
+            >
+              Sign In
+            </Link>
+          )}
         </div>
 
         {/* Terminal cursor */}
