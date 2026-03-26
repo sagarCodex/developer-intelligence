@@ -1,8 +1,79 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Button, Card, CardContent, Badge } from '@repo/ui';
-import { Send, Bot, User, Loader2, Trash2, Sparkles } from 'lucide-react';
+import { Button, Card, CardContent, Badge, Input } from '@repo/ui';
+import {
+  Send,
+  Bot,
+  User,
+  Loader2,
+  Trash2,
+  Sparkles,
+  Settings2,
+  Key,
+  ChevronDown,
+  Eye,
+  EyeOff,
+  X,
+} from 'lucide-react';
+
+type Provider = 'claude' | 'gemini' | 'openai';
+
+interface ProviderConfig {
+  id: Provider;
+  name: string;
+  icon: string;
+  color: string;
+  placeholder: string;
+  models: { id: string; name: string }[];
+  keyPrefix: string;
+  getKeyUrl: string;
+}
+
+const PROVIDERS: ProviderConfig[] = [
+  {
+    id: 'claude',
+    name: 'Claude (Anthropic)',
+    icon: '🟣',
+    color: 'text-purple-400',
+    placeholder: 'sk-ant-...',
+    keyPrefix: 'sk-ant-',
+    getKeyUrl: 'https://console.anthropic.com/settings/keys',
+    models: [
+      { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4' },
+      { id: 'claude-haiku-4-20250414', name: 'Claude Haiku 4' },
+    ],
+  },
+  {
+    id: 'gemini',
+    name: 'Gemini (Google)',
+    icon: '🔵',
+    color: 'text-blue-400',
+    placeholder: 'AIza...',
+    keyPrefix: 'AIza',
+    getKeyUrl: 'https://aistudio.google.com/apikey',
+    models: [
+      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+      { id: 'gemini-2.5-pro-preview-05-06', name: 'Gemini 2.5 Pro' },
+      { id: 'gemini-2.5-flash-preview-05-20', name: 'Gemini 2.5 Flash' },
+    ],
+  },
+  {
+    id: 'openai',
+    name: 'ChatGPT (OpenAI)',
+    icon: '🟢',
+    color: 'text-green-400',
+    placeholder: 'sk-...',
+    keyPrefix: 'sk-',
+    getKeyUrl: 'https://platform.openai.com/api-keys',
+    models: [
+      { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+      { id: 'gpt-4o', name: 'GPT-4o' },
+      { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini' },
+      { id: 'gpt-4.1', name: 'GPT-4.1' },
+    ],
+  },
+];
 
 interface Message {
   id: string;
@@ -11,12 +82,56 @@ interface Message {
   timestamp: Date;
 }
 
+// Persist provider config in localStorage
+function loadConfig(): { provider: Provider; apiKey: string; model: string } {
+  if (typeof window === 'undefined') return { provider: 'claude', apiKey: '', model: '' };
+  try {
+    const saved = localStorage.getItem('di-ai-config');
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return { provider: 'claude', apiKey: '', model: '' };
+}
+
+function saveConfig(config: { provider: Provider; apiKey: string; model: string }) {
+  try {
+    localStorage.setItem('di-ai-config', JSON.stringify(config));
+  } catch {}
+}
+
 export default function AssistantPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showKey, setShowKey] = useState(false);
+
+  // Provider config
+  const [provider, setProvider] = useState<Provider>('claude');
+  const [apiKey, setApiKey] = useState('');
+  const [model, setModel] = useState('');
+  const [configLoaded, setConfigLoaded] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Load config from localStorage on mount
+  useEffect(() => {
+    const config = loadConfig();
+    setProvider(config.provider);
+    setApiKey(config.apiKey);
+    setModel(config.model);
+    setConfigLoaded(true);
+  }, []);
+
+  // Save config on change
+  useEffect(() => {
+    if (configLoaded) {
+      saveConfig({ provider, apiKey, model });
+    }
+  }, [provider, apiKey, model, configLoaded]);
+
+  const activeProvider = PROVIDERS.find((p) => p.id === provider) || PROVIDERS[0];
+  const activeModel = model || activeProvider.models[0].id;
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -28,6 +143,11 @@ export default function AssistantPage() {
 
   const handleSubmit = async () => {
     if (!input.trim() || isStreaming) return;
+
+    if (!apiKey) {
+      setShowSettings(true);
+      return;
+    }
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -59,6 +179,9 @@ export default function AssistantPage() {
             role: m.role,
             content: m.content,
           })),
+          provider,
+          apiKey,
+          model: activeModel,
         }),
       });
 
@@ -94,8 +217,8 @@ export default function AssistantPage() {
 
               try {
                 const parsed = JSON.parse(data);
-                if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                  fullContent += parsed.delta.text;
+                if (parsed.text) {
+                  fullContent += parsed.text;
                   setMessages((prev) =>
                     prev.map((m) =>
                       m.id === assistantMessage.id ? { ...m, content: fullContent } : m,
@@ -113,7 +236,7 @@ export default function AssistantPage() {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMessage.id
-            ? { ...m, content: 'Error: Failed to connect to AI service. Check your ANTHROPIC_API_KEY.' }
+            ? { ...m, content: 'Error: Failed to connect to AI service. Check your API key and try again.' }
             : m,
         ),
       );
@@ -134,6 +257,10 @@ export default function AssistantPage() {
     'Summarize my recent notes',
   ];
 
+  const maskedKey = apiKey
+    ? `${apiKey.slice(0, 6)}${'•'.repeat(Math.max(0, apiKey.length - 10))}${apiKey.slice(-4)}`
+    : '';
+
   return (
     <div className="max-w-4xl mx-auto flex flex-col h-[calc(100vh-8rem)]">
       {/* Header */}
@@ -146,17 +273,133 @@ export default function AssistantPage() {
             <h1 className="font-mono text-lg font-bold text-text-primary">Developer_Intelligence</h1>
             <div className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-              <span className="text-[10px] text-text-secondary font-mono">AI Assistant</span>
+              <span className="text-[10px] text-text-secondary font-mono">
+                {activeProvider.icon} {activeProvider.name} • {activeProvider.models.find((m) => m.id === activeModel)?.name || activeModel}
+              </span>
             </div>
           </div>
         </div>
-        {messages.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={handleClear}>
-            <Trash2 className="h-4 w-4" />
-            Clear
+        <div className="flex items-center gap-2">
+          {messages.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={handleClear}>
+              <Trash2 className="h-4 w-4" />
+              Clear
+            </Button>
+          )}
+          <Button
+            variant={apiKey ? 'ghost' : 'default'}
+            size="sm"
+            onClick={() => setShowSettings(!showSettings)}
+          >
+            <Settings2 className="h-4 w-4" />
+            {apiKey ? '' : 'Set API Key'}
           </Button>
-        )}
+        </div>
       </div>
+
+      {/* Settings panel */}
+      {showSettings && (
+        <Card variant="elevated" className="mb-4 relative">
+          <button
+            onClick={() => setShowSettings(false)}
+            className="absolute top-3 right-3 text-text-muted hover:text-text-primary"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <CardContent className="p-5 space-y-4">
+            <h3 className="font-mono text-sm font-semibold text-text-primary flex items-center gap-2">
+              <Key className="h-4 w-4 text-accent" />
+              AI Provider Settings
+            </h3>
+
+            {/* Provider selector */}
+            <div className="space-y-2">
+              <label className="text-xs text-text-secondary font-mono">Provider</label>
+              <div className="flex gap-2">
+                {PROVIDERS.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setProvider(p.id);
+                      setModel(''); // Reset model when switching provider
+                    }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md font-mono text-xs transition-colors ${
+                      provider === p.id
+                        ? 'bg-accent-muted text-accent border border-accent'
+                        : 'bg-surface border border-border text-text-secondary hover:border-border-hover'
+                    }`}
+                  >
+                    <span>{p.icon}</span>
+                    <span>{p.id === 'claude' ? 'Claude' : p.id === 'gemini' ? 'Gemini' : 'ChatGPT'}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Model selector */}
+            <div className="space-y-2">
+              <label className="text-xs text-text-secondary font-mono">Model</label>
+              <div className="flex gap-2 flex-wrap">
+                {activeProvider.models.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setModel(m.id)}
+                    className={`px-3 py-1.5 rounded-md font-mono text-xs transition-colors ${
+                      activeModel === m.id
+                        ? 'bg-accent-muted text-accent border border-accent'
+                        : 'bg-surface border border-border text-text-secondary hover:border-border-hover'
+                    }`}
+                  >
+                    {m.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* API Key input */}
+            <div className="space-y-2">
+              <label className="text-xs text-text-secondary font-mono flex items-center justify-between">
+                <span>API Key</span>
+                <a
+                  href={activeProvider.getKeyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent hover:underline"
+                >
+                  Get a key →
+                </a>
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type={showKey ? 'text' : 'password'}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder={activeProvider.placeholder}
+                    className="w-full h-10 rounded-md border border-border bg-surface px-3 pr-10 text-sm font-mono text-text-primary placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  />
+                  <button
+                    onClick={() => setShowKey(!showKey)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                  >
+                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <p className="text-[10px] text-text-muted font-mono">
+                🔒 Your API key is stored locally in your browser. It is never sent to our servers — only directly to {activeProvider.name}.
+              </p>
+            </div>
+
+            {apiKey && (
+              <div className="flex items-center gap-2 pt-1">
+                <span className="h-2 w-2 rounded-full bg-accent" />
+                <span className="text-xs text-accent font-mono">Ready — key configured</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2">
@@ -168,9 +411,18 @@ export default function AssistantPage() {
             <h2 className="font-mono text-xl font-bold text-text-primary mb-2">
               How can I help?
             </h2>
-            <p className="text-sm text-text-secondary mb-8 max-w-md">
+            <p className="text-sm text-text-secondary mb-4 max-w-md">
               I can help you write code, debug issues, explain concepts, generate PRDs, and more.
             </p>
+            {!apiKey && (
+              <button
+                onClick={() => setShowSettings(true)}
+                className="mb-6 flex items-center gap-2 px-4 py-2 rounded-lg border border-accent bg-accent-muted text-accent text-xs font-mono hover:bg-accent/20 transition-colors"
+              >
+                <Key className="h-3.5 w-3.5" />
+                Set up your API key to get started
+              </button>
+            )}
             <div className="flex flex-wrap gap-2 justify-center max-w-lg">
               {suggestions.map((s) => (
                 <button
@@ -245,7 +497,7 @@ export default function AssistantPage() {
                 handleSubmit();
               }
             }}
-            placeholder="Ask anything... (Shift+Enter for new line)"
+            placeholder={apiKey ? 'Ask anything... (Shift+Enter for new line)' : 'Set your API key first →'}
             rows={1}
             className="flex-1 bg-transparent text-sm font-mono text-text-primary placeholder:text-text-muted resize-none focus:outline-none min-h-[40px] max-h-[120px]"
             style={{ height: 'auto', overflow: 'hidden' }}
@@ -270,7 +522,8 @@ export default function AssistantPage() {
         </div>
         <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
           <span className="text-[10px] text-text-muted font-mono">
-            Powered by Claude Sonnet 4.6
+            {activeProvider.icon} {activeProvider.models.find((m) => m.id === activeModel)?.name || activeModel}
+            {apiKey ? ' • Key set' : ' • No key'}
           </span>
           <span className="text-[10px] text-text-muted font-mono">
             Enter to send, Shift+Enter for new line

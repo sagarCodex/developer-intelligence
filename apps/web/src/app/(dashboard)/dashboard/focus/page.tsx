@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Badge } from '@repo/ui';
-import { Play, Pause, RotateCcw, Timer } from 'lucide-react';
+import { Play, Pause, RotateCcw, Timer, Plus, Minus, Settings2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 
 const PRESET_DURATIONS = [
@@ -12,6 +12,13 @@ const PRESET_DURATIONS = [
   { label: '90m', seconds: 90 * 60 },
 ];
 
+const FOCUS_TYPES = [
+  { label: 'Deep Work', value: 'DEEP_WORK' as const },
+  { label: 'Shallow Work', value: 'SHALLOW_WORK' as const },
+  { label: 'Learning', value: 'LEARNING' as const },
+  { label: 'Break', value: 'BREAK' as const },
+];
+
 type TimerState = 'idle' | 'running' | 'paused';
 
 export default function FocusPage() {
@@ -19,6 +26,9 @@ export default function FocusPage() {
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [timerState, setTimerState] = useState<TimerState>('idle');
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [focusType, setFocusType] = useState<'DEEP_WORK' | 'SHALLOW_WORK' | 'LEARNING' | 'BREAK'>('DEEP_WORK');
+  const [customMinutes, setCustomMinutes] = useState('');
+  const [showCustom, setShowCustom] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data: todayStats } = trpc.focus.todayStats.useQuery();
@@ -68,7 +78,7 @@ export default function FocusPage() {
   const handleStart = () => {
     if (timerState === 'idle') {
       setTimeLeft(duration);
-      startSession.mutate({ duration, type: 'DEEP_WORK' });
+      startSession.mutate({ duration, type: focusType });
     }
     setTimerState('running');
   };
@@ -86,9 +96,29 @@ export default function FocusPage() {
     }
   };
 
+  const adjustDuration = (delta: number) => {
+    const newDuration = Math.max(60, Math.min(180 * 60, duration + delta * 60));
+    setDuration(newDuration);
+    if (timerState === 'idle') {
+      setTimeLeft(newDuration);
+    }
+  };
+
+  const handleCustomSubmit = () => {
+    const mins = parseInt(customMinutes);
+    if (mins > 0 && mins <= 180) {
+      const newDuration = mins * 60;
+      setDuration(newDuration);
+      setTimeLeft(newDuration);
+      setShowCustom(false);
+      setCustomMinutes('');
+    }
+  };
+
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
   const progress = duration > 0 ? ((duration - timeLeft) / duration) * 100 : 0;
+  const durationMinutes = Math.floor(duration / 60);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -109,26 +139,101 @@ export default function FocusPage() {
           />
         </div>
 
-        <CardContent className="p-12 text-center">
-          {/* Duration presets */}
+        <CardContent className="p-8 md:p-12 text-center">
+          {/* Timer config - only visible when idle */}
           {timerState === 'idle' && (
-            <div className="flex gap-3 justify-center mb-8">
-              {PRESET_DURATIONS.map((preset) => (
+            <div className="space-y-6 mb-8">
+              {/* Duration presets */}
+              <div className="flex flex-wrap gap-2 justify-center items-center">
+                {PRESET_DURATIONS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    onClick={() => {
+                      setDuration(preset.seconds);
+                      setTimeLeft(preset.seconds);
+                      setShowCustom(false);
+                    }}
+                    className={`px-4 py-2 rounded-md font-mono text-sm transition-colors ${
+                      duration === preset.seconds && !showCustom
+                        ? 'bg-accent-muted text-accent border border-accent'
+                        : 'bg-surface border border-border text-text-secondary hover:border-border-hover'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+
+                {/* Custom duration toggle */}
                 <button
-                  key={preset.label}
-                  onClick={() => {
-                    setDuration(preset.seconds);
-                    setTimeLeft(preset.seconds);
-                  }}
+                  onClick={() => setShowCustom(!showCustom)}
                   className={`px-4 py-2 rounded-md font-mono text-sm transition-colors ${
-                    duration === preset.seconds
+                    showCustom
                       ? 'bg-accent-muted text-accent border border-accent'
                       : 'bg-surface border border-border text-text-secondary hover:border-border-hover'
                   }`}
                 >
-                  {preset.label}
+                  <Settings2 className="h-3.5 w-3.5 inline mr-1.5" />
+                  Custom
                 </button>
-              ))}
+              </div>
+
+              {/* Custom duration input */}
+              {showCustom && (
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => adjustDuration(-5)}
+                    className="h-10 w-10 rounded-md border border-border bg-surface text-text-secondary hover:border-accent hover:text-accent flex items-center justify-center transition-colors"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={customMinutes || durationMinutes}
+                      onChange={(e) => {
+                        setCustomMinutes(e.target.value);
+                        const mins = parseInt(e.target.value);
+                        if (mins > 0 && mins <= 180) {
+                          setDuration(mins * 60);
+                          setTimeLeft(mins * 60);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleCustomSubmit();
+                      }}
+                      min={1}
+                      max={180}
+                      className="w-20 h-10 text-center rounded-md border border-border bg-surface font-mono text-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="font-mono text-sm text-text-secondary">minutes</span>
+                  </div>
+
+                  <button
+                    onClick={() => adjustDuration(5)}
+                    className="h-10 w-10 rounded-md border border-border bg-surface text-text-secondary hover:border-accent hover:text-accent flex items-center justify-center transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Focus type selector */}
+              <div className="flex flex-wrap gap-2 justify-center">
+                {FOCUS_TYPES.map((type) => (
+                  <button
+                    key={type.value}
+                    onClick={() => setFocusType(type.value)}
+                    className={`px-3 py-1.5 rounded-full font-mono text-xs transition-colors ${
+                      focusType === type.value
+                        ? 'bg-accent text-bg font-semibold'
+                        : 'bg-surface border border-border text-text-secondary hover:border-border-hover'
+                    }`}
+                  >
+                    {type.label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -144,6 +249,15 @@ export default function FocusPage() {
               {String(seconds).padStart(2, '0')}
             </span>
           </div>
+
+          {/* Running state info */}
+          {timerState !== 'idle' && (
+            <div className="mb-6">
+              <Badge variant="default" className="text-xs">
+                {FOCUS_TYPES.find((t) => t.value === focusType)?.label || 'Deep Work'} • {durationMinutes}m session
+              </Badge>
+            </div>
+          )}
 
           {/* Controls */}
           <div className="flex gap-4 justify-center">
